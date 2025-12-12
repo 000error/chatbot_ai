@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Model Lab",
+  "description": "A minimalist, 3-column workspace for testing and comparing Google Gemini API prompts and model configurations in parallel.",
+  "requestFramePermissions": []
+}
