@@ -10,8 +10,11 @@
     "api": "node server/proxy.js"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "qiniu": "^7.14.0",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

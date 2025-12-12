@@ -14,6 +14,12 @@ export interface ModelConfig {
   baseUrl?: string;
   size?: string;
   numberResults?: number;
+  // 七牛云图床配置
+  qiniuAccessKey?: string;
+  qiniuSecretKey?: string;
+  qiniuBucket?: string;
+  qiniuDomain?: string;
+  qiniuRegion?: string; // 存储区域: z0(华东), z1(华北), z2(华南), na0(北美), as0(东南亚), cn-east-2(华东-浙江2)
 }
 
 export interface TestResult {

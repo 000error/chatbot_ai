@@ -8,4 +8,20 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api/qiniu': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+      '/api/v1': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+      '/v1': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
+    },
+  },
 })

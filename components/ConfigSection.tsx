@@ -251,6 +251,76 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
                                 </div>
                             </div>
 
+                            {/* 七牛云图床配置 */}
+                            <div className="mb-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                                <label className="block text-[10px] uppercase text-gray-400 font-bold mb-3">
+                                    七牛云图床配置
+                                    <span className="text-gray-600 normal-case font-normal ml-1">(可选，用于 Google 模型参考图)</span>
+                                </label>
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-[9px] text-gray-500 mb-1">Access Key</label>
+                                        <input
+                                            type="password"
+                                            value={config.qiniuAccessKey || ''}
+                                            onChange={(e) => onUpdateConfig(config.id, { qiniuAccessKey: e.target.value })}
+                                            placeholder="AK"
+                                            className="w-full bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none placeholder-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] text-gray-500 mb-1">Secret Key</label>
+                                        <input
+                                            type="password"
+                                            value={config.qiniuSecretKey || ''}
+                                            onChange={(e) => onUpdateConfig(config.id, { qiniuSecretKey: e.target.value })}
+                                            placeholder="SK"
+                                            className="w-full bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none placeholder-gray-700"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[9px] text-gray-500 mb-1">Bucket 名称</label>
+                                        <input
+                                            type="text"
+                                            value={config.qiniuBucket || ''}
+                                            onChange={(e) => onUpdateConfig(config.id, { qiniuBucket: e.target.value })}
+                                            placeholder="存储空间名称"
+                                            className="w-full bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none placeholder-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[9px] text-gray-500 mb-1">存储区域</label>
+                                        <select
+                                            value={config.qiniuRegion || 'z0'}
+                                            onChange={(e) => onUpdateConfig(config.id, { qiniuRegion: e.target.value })}
+                                            className="w-full bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none"
+                                        >
+                                            <option value="z0">华东</option>
+                                            <option value="z1">华北</option>
+                                            <option value="z2">华南</option>
+                                            <option value="cn-east-2">华东-浙江2</option>
+                                            <option value="na0">北美</option>
+                                            <option value="as0">东南亚</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <label className="block text-[9px] text-gray-500 mb-1">访问域名</label>
+                                    <input
+                                        type="text"
+                                        value={config.qiniuDomain || ''}
+                                        onChange={(e) => onUpdateConfig(config.id, { qiniuDomain: e.target.value })}
+                                        placeholder="http://xxx.bkt.clouddn.com"
+                                        className="w-full bg-gray-900 border border-gray-700 text-gray-200 text-xs rounded p-2 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 outline-none placeholder-gray-700"
+                                    />
+                                </div>
+                                <p className="text-[9px] text-gray-600 mt-2">
+                                    配置后，本地上传的参考图会自动上传到七牛云，以支持 Google Banana Pro 模型
+                                </p>
+                            </div>
+
                             <div className="mb-4">
                                 <label className="block text-[10px] uppercase text-gray-500 font-bold mb-1">System Instructions</label>
                                 <textarea

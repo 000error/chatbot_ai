@@ -1,4 +1,5 @@
 import { FileAttachment, ModelConfig } from "../types";
+import { uploadMultipleToQiniu } from "./qiniuService";
 
 export const generateContent = async (
   prompt: string,
@@ -59,8 +60,51 @@ export const generateContent = async (
     };
     if (isGoogle) {
       payload.output_format = 'png';
-      const urls = (seedUrls || []).filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
-      if (urls.length > 0) payload.seed_image_urls = urls;
+      // 先收集已有的 seed URLs
+      console.log('[Google] 传入的 seedUrls:', seedUrls);
+      const existingUrls = (seedUrls || []).filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+      console.log('[Google] 过滤后的 existingUrls:', existingUrls);
+      
+      // 如果有本地图片且配置了七牛云，先上传到图床
+      let uploadedUrls: string[] = [];
+      console.log('[Google] files.length:', files.length);
+      console.log('[Google] 七牛云配置:', {
+        hasAK: !!config.qiniuAccessKey,
+        hasSK: !!config.qiniuSecretKey,
+        hasBucket: !!config.qiniuBucket,
+        hasDomain: !!config.qiniuDomain,
+      });
+      if (files.length > 0 && config.qiniuAccessKey && config.qiniuSecretKey && config.qiniuBucket && config.qiniuDomain) {
+        console.log('[Google] 开始上传图片到七牛云...');
+        const imageDataUrls = files.map(file => {
+          const isDataUrl = file.data.startsWith("data:");
+          const base64Data = file.data.includes(",") ? file.data.split(",")[1] : file.data;
+          return isDataUrl ? file.data : `data:${file.mimeType};base64,${base64Data}`;
+        });
+        try {
+          uploadedUrls = await uploadMultipleToQiniu(imageDataUrls, {
+            accessKey: config.qiniuAccessKey,
+            secretKey: config.qiniuSecretKey,
+            bucket: config.qiniuBucket,
+            domain: config.qiniuDomain,
+            region: config.qiniuRegion,
+          });
+          console.log('[Google] 上传成功，URLs:', uploadedUrls);
+        } catch (e) {
+          console.error('[Google] 上传失败:', e);
+        }
+      } else {
+        console.log('[Google] 跳过七牛云上传 - 缺少文件或配置');
+      }
+      
+      // 合并所有 URLs
+      const allUrls = [...uploadedUrls, ...existingUrls];
+      console.log('[Google] 合并后的 allUrls:', allUrls);
+      if (allUrls.length > 0) {
+        // ModelGate 使用 seed_images 参数（不是 seed_image_urls）
+        payload.seed_images = allUrls;
+        console.log('[Google] 已添加 seed_images 到 payload');
+      }
     }
     if (isDoubao) {
       payload.output_format = 'png';
