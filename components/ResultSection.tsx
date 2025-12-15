@@ -151,6 +151,118 @@ const DebugInfo: React.FC<{ result: TestResult }> = ({ result }) => {
   );
 };
 
+// 结果卡片组件（支持折叠）
+const ResultCard: React.FC<{
+  config: ModelConfig;
+  result: TestResult | undefined;
+  index: number;
+}> = ({ config, result, index }) => {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  // 获取状态标签
+  const getStatusBadge = () => {
+    if (!result) {
+      return <span className="text-gray-500 text-xs">等待运行</span>;
+    }
+    if (result.isLoading) {
+      return (
+        <span className="flex items-center gap-1 text-yellow-400 text-xs">
+          <div className="w-3 h-3 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin"></div>
+          运行中...
+        </span>
+      );
+    }
+    if (result.error) {
+      return <span className="text-red-400 text-xs">失败</span>;
+    }
+    return <span className="text-green-400 text-xs">成功</span>;
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden shadow-sm">
+      {/* Header for Result Card - 可点击折叠 */}
+      <div
+        className="bg-gray-750 px-4 py-2 border-b border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-700 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center gap-3">
+          <svg
+            className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-gray-400 uppercase">Config {index + 1}: {config.modelName}</span>
+            <span className="text-[10px] text-gray-500">Temp: {config.temperature}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {getStatusBadge()}
+          {result?.timestamp && !result.isLoading && (
+            <span className="text-[10px] text-gray-500">
+              {new Date(result.timestamp).toLocaleTimeString()}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 可折叠内容 */}
+      {isExpanded && (
+        <div className="p-4 min-h-[120px] space-y-3">
+          {!result ? (
+            <div className="h-full flex items-center justify-center text-gray-600 italic text-sm">
+              Waiting to run...
+            </div>
+          ) : result.isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-3 py-6">
+              <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm text-gray-400 animate-pulse">Generating response...</span>
+            </div>
+          ) : result.error ? (
+            <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-900/50">
+              <strong>Error:</strong> {result.error}
+            </div>
+          ) : (
+            result.imageBase64s && result.imageBase64s.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {result.imageBase64s.map((b64, i) => (
+                    <ImageCard
+                      key={i}
+                      src={`data:image/png;base64,${b64}`}
+                      index={i}
+                    />
+                  ))}
+                </div>
+                <DebugInfo result={result} />
+              </div>
+            ) : result.imageUrls && result.imageUrls.length > 0 ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {result.imageUrls.map((url, i) => (
+                    <ImageCard key={i} src={url} index={i} />
+                  ))}
+                </div>
+                <DebugInfo result={result} />
+              </div>
+            ) : (
+              <div className="prose prose-invert prose-sm max-w-none space-y-3">
+                <div className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed">
+                  {result.textResponse}
+                </div>
+                <DebugInfo result={result} />
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ResultSection: React.FC<ResultSectionProps> = ({ results, configs }) => {
   return (
     <div className="flex flex-col h-full bg-gray-900">
@@ -169,74 +281,14 @@ const ResultSection: React.FC<ResultSectionProps> = ({ results, configs }) => {
              </div>
         )}
 
-        {configs.map((config, index) => {
-            const result = results[config.id];
-            
-            return (
-                <div key={config.id} className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden shadow-sm">
-                    {/* Header for Result Card */}
-                    <div className="bg-gray-750 px-4 py-2 border-b border-gray-700 flex justify-between items-center">
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-gray-400 uppercase">Config {index + 1}: {config.modelName}</span>
-                            <span className="text-[10px] text-gray-500">Temp: {config.temperature}</span>
-                        </div>
-                        {result?.timestamp && !result.isLoading && (
-                            <span className="text-[10px] text-gray-500">
-                                {new Date(result.timestamp).toLocaleTimeString()}
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="p-4 min-h-[120px] space-y-3">
-                        {!result ? (
-                            <div className="h-full flex items-center justify-center text-gray-600 italic text-sm">
-                                Waiting to run...
-                            </div>
-                        ) : result.isLoading ? (
-                            <div className="flex flex-col items-center justify-center h-full space-y-3 py-6">
-                                <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-                                <span className="text-sm text-gray-400 animate-pulse">Generating response...</span>
-                            </div>
-                        ) : result.error ? (
-                            <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-900/50">
-                                <strong>Error:</strong> {result.error}
-                            </div>
-                        ) : (
-                            result.imageBase64s && result.imageBase64s.length > 0 ? (
-                                <div className="space-y-3">
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                        {result.imageBase64s.map((b64, i) => (
-                                            <ImageCard
-                                                key={i}
-                                                src={`data:image/png;base64,${b64}`}
-                                                index={i}
-                                            />
-                                        ))}
-                                    </div>
-                                    <DebugInfo result={result} />
-                                </div>
-                            ) : result.imageUrls && result.imageUrls.length > 0 ? (
-                                <div className="space-y-3">
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                        {result.imageUrls.map((url, i) => (
-                                            <ImageCard key={i} src={url} index={i} />
-                                        ))}
-                                    </div>
-                                    <DebugInfo result={result} />
-                                </div>
-                            ) : (
-                                <div className="prose prose-invert prose-sm max-w-none space-y-3">
-                                    <div className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed">
-                                        {result.textResponse}
-                                    </div>
-                                    <DebugInfo result={result} />
-                                </div>
-                            )
-                        )}
-                    </div>
-                </div>
-            );
-        })}
+        {configs.map((config, index) => (
+          <ResultCard
+            key={config.id}
+            config={config}
+            result={results[config.id]}
+            index={index}
+          />
+        ))}
       </div>
     </div>
   );

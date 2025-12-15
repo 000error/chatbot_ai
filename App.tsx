@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import InputSection from './components/InputSection';
 import ConfigSection from './components/ConfigSection';
 import ResultSection from './components/ResultSection';
-import { ModelConfig, FileAttachment, TestResult, OpenAIModel } from './types';
+import { ModelConfig, FileAttachment, TestResult, OpenAIModel, UserPrompt } from './types';
 import { generateContent } from './services/openAIService';
 
 const App: React.FC = () => {
   // --- State ---
-  const [prompt, setPrompt] = useState<string>("");
-  const [files, setFiles] = useState<FileAttachment[]>([]);
-  const [seedUrls, setSeedUrls] = useState<string[]>([]);
+  const [prompts, setPrompts] = useState<UserPrompt[]>([
+    {
+      id: '1',
+      text: '',
+      files: [],
+      seedUrls: []
+    }
+  ]);
   
   const [configs, setConfigs] = useState<ModelConfig[]>([
     {
@@ -27,20 +32,46 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  const addFile = (file: FileAttachment) => {
-    setFiles(prev => [...prev, file]);
+  // Prompt handlers
+  const addPrompt = () => {
+    const newId = Date.now().toString();
+    setPrompts(prev => [
+      ...prev,
+      { id: newId, text: '', files: [], seedUrls: [] }
+    ]);
   };
 
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+  const removePrompt = (id: string) => {
+    if (prompts.length <= 1) return; // 至少保留一个
+    setPrompts(prev => prev.filter(p => p.id !== id));
   };
 
-  const addSeedUrl = (url: string) => {
-    setSeedUrls(prev => [...prev, url]);
+  const updatePromptText = (id: string, text: string) => {
+    setPrompts(prev => prev.map(p => p.id === id ? { ...p, text } : p));
   };
 
-  const removeSeedUrl = (index: number) => {
-    setSeedUrls(prev => prev.filter((_, i) => i !== index));
+  const addFileToPrompt = (promptId: string, file: FileAttachment) => {
+    setPrompts(prev => prev.map(p =>
+      p.id === promptId ? { ...p, files: [...p.files, file] } : p
+    ));
+  };
+
+  const removeFileFromPrompt = (promptId: string, index: number) => {
+    setPrompts(prev => prev.map(p =>
+      p.id === promptId ? { ...p, files: p.files.filter((_, i) => i !== index) } : p
+    ));
+  };
+
+  const addSeedUrlToPrompt = (promptId: string, url: string) => {
+    setPrompts(prev => prev.map(p =>
+      p.id === promptId ? { ...p, seedUrls: [...p.seedUrls, url] } : p
+    ));
+  };
+
+  const removeSeedUrlFromPrompt = (promptId: string, index: number) => {
+    setPrompts(prev => prev.map(p =>
+      p.id === promptId ? { ...p, seedUrls: p.seedUrls.filter((_, i) => i !== index) } : p
+    ));
   };
 
   const addConfig = () => {
@@ -72,8 +103,10 @@ const App: React.FC = () => {
   };
 
   const runTest = async () => {
-    if (!prompt && files.length === 0 && seedUrls.length === 0) {
-        alert("Please enter a prompt or upload an image.");
+    // 检查是否有有效输入
+    const hasValidInput = prompts.some(p => p.text || p.files.length > 0 || p.seedUrls.length > 0);
+    if (!hasValidInput) {
+        alert("请输入提示词或上传图片。");
         return;
     }
 
@@ -91,9 +124,14 @@ const App: React.FC = () => {
     setResults(initialResults);
 
     // Run requests in parallel
-    const promises = configs.map(async (config) => {
+    // 每个 config 使用对应索引的 prompt，如果没有则使用第一个
+    const promises = configs.map(async (config, configIndex) => {
+        // 获取对应的 prompt，如果索引超出则使用第一个
+        const promptData = prompts[configIndex] || prompts[0];
+        const { text: promptText, files: promptFiles, seedUrls: promptSeedUrls } = promptData;
+        
         try {
-            const result = await generateContent(prompt, files, config, seedUrls);
+            const result = await generateContent(promptText, promptFiles, config, promptSeedUrls);
             setResults(prev => ({
                 ...prev,
                 [config.id]: {
@@ -130,14 +168,14 @@ const App: React.FC = () => {
       {/* 1. Input Section */}
       <div className="h-[40vh] lg:h-full overflow-hidden">
         <InputSection 
-            prompt={prompt} 
-            setPrompt={setPrompt} 
-            files={files} 
-            onAddFile={addFile} 
-            onRemoveFile={removeFile}
-            seedUrls={seedUrls}
-            onAddSeedUrl={addSeedUrl}
-            onRemoveSeedUrl={removeSeedUrl}
+            prompts={prompts}
+            onAddPrompt={addPrompt}
+            onRemovePrompt={removePrompt}
+            onUpdatePromptText={updatePromptText}
+            onAddFile={addFileToPrompt}
+            onRemoveFile={removeFileFromPrompt}
+            onAddSeedUrl={addSeedUrlToPrompt}
+            onRemoveSeedUrl={removeSeedUrlFromPrompt}
         />
       </div>
 

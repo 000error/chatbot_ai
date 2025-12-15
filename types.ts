@@ -5,6 +5,14 @@ export interface FileAttachment {
   preview: string; // Data URL for preview
 }
 
+// 用户提示词类型
+export interface UserPrompt {
+  id: string;
+  text: string;
+  files: FileAttachment[];
+  seedUrls: string[];
+}
+
 export interface ModelConfig {
   id: string;
   modelName: string;
