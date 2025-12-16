@@ -51,9 +51,13 @@ export const generateContent = async (
     let sizeCandidates = isDoubao ? ['2560x1440','1920x1080','3840x2160','1024x1024','960x960','896x896','832x832','768x768'] : (isGoogle ? ['1024x1024','768x768','512x512'] : ['1024x1024','768x768','512x512']);
     let sizeIndex = 0;
     const initialSize = (config.size && typeof config.size === 'string' && /\b\d{3,4}x\d{3,4}\b/i.test(config.size.trim())) ? config.size.trim().toLowerCase() : sizeCandidates[sizeIndex];
+    // 图像生成模型：将 systemInstruction 作为前缀拼接到 prompt
+    const finalPrompt = config.systemInstruction 
+      ? `${config.systemInstruction}\n\n${prompt}` 
+      : prompt;
     const payload: any = {
       model: config.modelName,
-      prompt,
+      prompt: finalPrompt,
       size: initialSize,
       output_type: "base64",
       number_results: (typeof config.numberResults === 'number' && config.numberResults > 0 ? config.numberResults : 1),
