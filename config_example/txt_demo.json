@@ -1,0 +1,8 @@
+{
+  "id": "1",
+  "modelName": "gpt-5-nano",
+  "systemInstruction": "",
+  "temperature": 1,
+  "apiKey": "sk-？？？？5",
+  "baseUrl": "https://mg.aid.pub/v1"
+}

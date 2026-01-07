@@ -1,0 +1,13 @@
+{
+  "id": "1",
+  "modelName": "google/nano-banana",
+  "systemInstruction": "",
+  "temperature": 1,
+  "apiKey": "sk-？？？？？？？",
+  "baseUrl": "https://mg.aid.pub/api/v1",
+  "qiniuAccessKey": "0rXMZ？？？？？？？？？？？NshMxLYyW",
+  "qiniuSecretKey": "ztbDa-？？？？？？？V3r9j",
+  "qiniuBucket": "bananapro0107",
+  "qiniuDomain": "t8h1？？？？？？com",
+  "qiniuRegion": "z2"
+}
