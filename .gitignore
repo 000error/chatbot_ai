@@ -7,10 +7,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build output
 dist
 dist-ssr
 *.local
+
+# Environment variables
+.env.local
+.env.*.local
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +29,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test images and uploads
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.octet-stream

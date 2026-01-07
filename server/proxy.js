@@ -1,3 +1,21 @@
+/**
+ * API Proxy Server
+ * 
+ * This server acts as a proxy between the frontend and external APIs:
+ * - Handles CORS for cross-origin requests
+ * - Proxies OpenAI API requests
+ * - Manages Qiniu Cloud image uploads
+ * - Secures API keys on the server side
+ * 
+ * Endpoints:
+ * - POST /api/qiniu/upload - Upload images to Qiniu Cloud
+ * - POST /v1/chat/completions - OpenAI chat completions
+ * - POST /v1/responses - OpenAI responses
+ * - POST /api/v1/images/generations - Image generation
+ * 
+ * @module proxy
+ */
+
 import { createServer } from 'http';
 import { URL } from 'url';
 import qiniu from 'qiniu';

@@ -1,14 +1,26 @@
 {
-  "name": "gemini-model-lab",
+  "name": "ai-chatbot-lab",
+  "version": "1.0.0",
+  "description": "A powerful AI model testing and comparison tool",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "api": "node server/proxy.js"
+    "api": "node server/proxy.js",
+    "start": "npm run api & npm run dev",
+    "serve": "npm run build && serve -s dist"
   },
+  "keywords": [
+    "ai",
+    "chatbot",
+    "openai",
+    "react",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "qiniu": "^7.14.0",
@@ -21,5 +33,9 @@
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   }
 }

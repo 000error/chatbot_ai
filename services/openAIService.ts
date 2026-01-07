@@ -1,6 +1,28 @@
+/**
+ * OpenAI Service
+ * 
+ * This service handles communication with OpenAI-compatible APIs and image generation models.
+ * It supports:
+ * - Text and multimodal chat completions
+ * - Image generation with multiple models (Google, Volcengine/Doubao)
+ * - File attachments and seed image URLs
+ * - Qiniu cloud storage integration for image uploads
+ * 
+ * @module openAIService
+ */
+
 import { FileAttachment, ModelConfig } from "../types";
 import { uploadMultipleToQiniu } from "./qiniuService";
 
+/**
+ * Generate content using OpenAI-compatible APIs or image generation models
+ * 
+ * @param prompt - The user's text prompt
+ * @param files - Array of file attachments (images)
+ * @param config - Model configuration including API key, base URL, and model settings
+ * @param seedUrls - Optional array of seed image URLs for image generation
+ * @returns Promise with generated content (text, images, or both)
+ */
 export const generateContent = async (
   prompt: string,
   files: FileAttachment[],

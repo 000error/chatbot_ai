@@ -1,8 +1,21 @@
 /**
- * 七牛云图床上传服务
- * 用于将本地图片上传到七牛云获取公开 URL
+ * Qiniu Cloud Storage Service
+ * 
+ * This service provides image upload functionality to Qiniu Cloud Storage.
+ * It handles base64 image data and returns public URLs for uploaded images.
+ * 
+ * Features:
+ * - Single and batch image uploads
+ * - Support for multiple storage regions
+ * - Data URL and base64 format handling
+ * - Backend proxy integration
+ * 
+ * @module qiniuService
  */
 
+/**
+ * Qiniu Cloud configuration interface
+ */
 export interface QiniuConfig {
   accessKey: string;
   secretKey: string;

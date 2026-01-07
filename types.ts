@@ -1,3 +1,15 @@
+/**
+ * Type Definitions
+ * 
+ * This module contains all TypeScript type definitions and enums
+ * used throughout the application.
+ * 
+ * @module types
+ */
+
+/**
+ * Represents a file attachment (image) in the chat
+ */
 export interface FileAttachment {
   name: string;
   mimeType: string;
@@ -6,6 +18,9 @@ export interface FileAttachment {
 }
 
 // 用户提示词类型
+/**
+ * User prompt containing text, files, and seed URLs
+ */
 export interface UserPrompt {
   id: string;
   text: string;
@@ -13,6 +28,9 @@ export interface UserPrompt {
   seedUrls: string[];
 }
 
+/**
+ * Model configuration including API settings and model parameters
+ */
 export interface ModelConfig {
   id: string;
   modelName: string;
@@ -30,6 +48,9 @@ export interface ModelConfig {
   qiniuRegion?: string; // 存储区域: z0(华东), z1(华北), z2(华南), na0(北美), as0(东南亚), cn-east-2(华东-浙江2)
 }
 
+/**
+ * Test result containing model responses and metadata
+ */
 export interface TestResult {
   configId: string;
   isLoading: boolean;
@@ -43,11 +64,17 @@ export interface TestResult {
   timestamp: number;
 }
 
+/**
+ * OpenAI model options
+ */
 export enum OpenAIModel {
   GPT_4O_MINI = 'gpt-4o-mini',
   GPT_4O = 'gpt-4o',
 }
 
+/**
+ * Extended model options including third-party providers
+ */
 export enum GeminiModel {
   GOOGLE_NANO_BANANA = 'google/nano-banana',
   GOOGLE_GEMINI_FLASH = 'google/gemini-2.0-flash',
