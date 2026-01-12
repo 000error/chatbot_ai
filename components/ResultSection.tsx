@@ -118,10 +118,78 @@ const ImageCard: React.FC<{ src: string; index: number }> = ({ src, index }) => 
 // Debug 信息组件
 const DebugInfo: React.FC<{ result: TestResult }> = ({ result }) => {
   if (!result.rawResponse && !result.endpoint && !result.requestPayload) return null;
+
+  // 解析 requestPayload 获取图片上传信息
+  const getImageUploadInfo = () => {
+    if (!result.requestPayload) return null;
+    try {
+      const payload = JSON.parse(result.requestPayload);
+      const seedImages = payload.seed_images || [];
+      const hasImages = seedImages.length > 0;
+      
+      // 分类：URL 图片和 base64 图片
+      const urlImages = seedImages.filter((img: string) => /^https?:\/\//i.test(img));
+      const base64Images = seedImages.filter((img: string) => img.startsWith('data:'));
+      
+      return {
+        hasImages,
+        totalCount: seedImages.length,
+        urlImages,
+        base64Images,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const imageInfo = getImageUploadInfo();
+
   return (
     <div className="mt-4">
       <Collapsible title="调试信息 (Request & Response)">
         <div className="space-y-4">
+          {/* 图片上传状态 - 醒目显示 */}
+          <div>
+            <div className="text-[11px] text-gray-400 font-semibold mb-2 border-b border-gray-700 pb-1">📷 输入图片状态</div>
+            <div className="bg-gray-950 p-3 rounded space-y-2">
+              {imageInfo ? (
+                <>
+                  <div className={`text-sm font-medium ${imageInfo.hasImages ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {imageInfo.hasImages 
+                      ? `✅ 已上传 ${imageInfo.totalCount} 张参考图` 
+                      : '⚠️ 未上传参考图'}
+                  </div>
+                  {imageInfo.hasImages && (
+                    <div className="text-xs text-gray-400 space-y-1">
+                      {imageInfo.urlImages.length > 0 && (
+                        <div>
+                          <span className="text-blue-400">URL图片 ({imageInfo.urlImages.length}):</span>
+                          <ul className="mt-1 ml-4 space-y-1">
+                            {imageInfo.urlImages.map((url: string, i: number) => (
+                              <li key={i} className="break-all text-gray-300">
+                                <a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 underline">
+                                  {url}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {imageInfo.base64Images.length > 0 && (
+                        <div>
+                          <span className="text-purple-400">Base64图片 ({imageInfo.base64Images.length}):</span>
+                          <span className="text-gray-500 ml-2">(本地上传，已转为data URL)</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">⚪ 非图片生成请求或无法解析</div>
+              )}
+            </div>
+          </div>
+
           {/* Request 部分 */}
           {(result.endpoint || result.requestPayload) && (
             <div>

@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
         proxy: {
+          '/api/qiniu': {
+            target: 'http://localhost:8787',
+            changeOrigin: true,
+          },
           '/v1': {
             target: 'https://mg.aid.pub',
             changeOrigin: true,
