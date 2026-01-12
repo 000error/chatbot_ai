@@ -1,17 +1,20 @@
-import React, { useState, useRef } from 'react';
-import { ModelConfig, OpenAIModel } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { ModelConfig, OpenAIModel, UserPrompt } from '../types';
 
 interface ConfigSectionProps {
   configs: ModelConfig[];
+  prompts: UserPrompt[];
   onAddConfig: () => void;
   onRemoveConfig: (id: string) => void;
   onUpdateConfig: (id: string, updates: Partial<ModelConfig>) => void;
-  onRunTest: () => void;
+  onRunTest: (selectedPromptIndices?: number[]) => void;
   isProcessing: boolean;
 }
 
 const ConfigSection: React.FC<ConfigSectionProps> = ({
   configs,
+  prompts,
   onAddConfig,
   onRemoveConfig,
   onUpdateConfig,
@@ -24,6 +27,56 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
   // State to track which config is currently requesting an import
   const [importTargetId, setImportTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 右键菜单状态
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [selectedPrompts, setSelectedPrompts] = useState<Set<number>>(new Set());
+  const [runningCount, setRunningCount] = useState<number>(0);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [contextMenu]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isProcessing) return;
+    // 菜单向上弹出，避免被截断
+    const menuHeight = 280; // 估计菜单高度
+    const y = Math.max(10, e.clientY - menuHeight);
+    setContextMenu({ x: e.clientX, y });
+    // 默认全选
+    setSelectedPrompts(new Set(prompts.map((_, i) => i)));
+  };
+
+  const togglePromptSelection = (index: number) => {
+    setSelectedPrompts(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const runSelectedPrompts = () => {
+    if (selectedPrompts.size === 0) return;
+    const indices = Array.from(selectedPrompts as Set<number>).sort((a, b) => a - b);
+    setRunningCount(indices.length);
+    onRunTest(indices);
+    setContextMenu(null);
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -117,26 +170,25 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
                     {/* Compact Header / Button */}
                     <div 
                         onClick={() => toggleExpand(config.id)}
-                        className="flex items-center justify-between p-3 cursor-pointer select-none group"
+                        className="flex items-center justify-between p-3 h-12 cursor-pointer select-none group"
                     >
-                        <div className="flex items-center gap-3">
-                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${isExpanded ? 'bg-purple-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <span className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${isExpanded ? 'bg-purple-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
                                 {index + 1}
                             </span>
-                            <div className="flex flex-col">
-                                <span className={`text-sm font-medium ${isExpanded ? 'text-gray-200' : 'text-gray-400'}`}>
+                            <div className="flex flex-col min-w-0">
+                                <span className={`text-sm font-medium truncate ${isExpanded ? 'text-gray-200' : 'text-gray-400'}`}>
                                     {config.modelName || 'No Model'}
                                 </span>
                                 {!isExpanded && (
-                                    <span className="text-[10px] text-gray-600 flex gap-2">
-                                        <span>Temp: {config.temperature}</span>
-                                        {config.apiKey && <span>• Custom Key</span>}
+                                    <span className="text-[10px] text-gray-600 truncate">
+                                        Temp: {config.temperature}{config.apiKey ? ' • Custom Key' : ''}
                                     </span>
                                 )}
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             {/* Delete Button (Visible on hover or if expanded) */}
                             {configs.length > 1 && (
                                 <button
@@ -359,7 +411,11 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
 
       <div className="p-4 border-t border-gray-800 bg-gray-850">
         <button
-            onClick={onRunTest}
+            onClick={() => {
+              setRunningCount(prompts.length);
+              onRunTest();
+            }}
+            onContextMenu={handleContextMenu}
             disabled={isProcessing}
             className={`w-full py-3 rounded-lg font-bold text-white shadow-lg transition-all transform hover:scale-[1.02] active:scale-[0.98]
                 ${isProcessing 
@@ -372,16 +428,74 @@ const ConfigSection: React.FC<ConfigSectionProps> = ({
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Running {configs.length} Test{configs.length > 1 ? 's' : ''}...
+                    Running {runningCount} Test{runningCount > 1 ? 's' : ''}...
                 </span>
             ) : (
                 <span className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Run All Tests
+                    <span className="text-[10px] opacity-60">右键选择</span>
                 </span>
             )}
         </button>
       </div>
+
+      {/* 右键菜单 - 使用 Portal 渲染到 body */}
+      {contextMenu && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-50 bg-gray-800 border border-gray-600 rounded-lg shadow-xl py-2 min-w-[220px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <div className="px-3 py-2 border-b border-gray-700">
+            <span className="text-xs font-bold text-gray-400">选择要运行的 Prompt</span>
+          </div>
+          <div className="max-h-[200px] overflow-y-auto">
+            {prompts.map((prompt, index) => (
+              <label
+                key={prompt.id}
+                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedPrompts.has(index)}
+                  onChange={() => togglePromptSelection(index)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-900 text-purple-500 focus:ring-purple-500"
+                />
+                <span className="text-sm text-gray-300 truncate">
+                  Prompt {index + 1}: {prompt.text?.substring(0, 30) || '(无文本)'}{prompt.text && prompt.text.length > 30 ? '...' : ''}
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="px-3 py-2 border-t border-gray-700 flex gap-2">
+            <button
+              onClick={() => setSelectedPrompts(new Set(prompts.map((_, i) => i)))}
+              className="flex-1 text-[10px] text-gray-400 hover:text-white py-1 px-2 rounded bg-gray-700 hover:bg-gray-600"
+            >
+              全选
+            </button>
+            <button
+              onClick={() => setSelectedPrompts(new Set())}
+              className="flex-1 text-[10px] text-gray-400 hover:text-white py-1 px-2 rounded bg-gray-700 hover:bg-gray-600"
+            >
+              全不选
+            </button>
+            <button
+              onClick={runSelectedPrompts}
+              disabled={selectedPrompts.size === 0}
+              className={`flex-1 text-[10px] py-1 px-2 rounded font-bold ${
+                selectedPrompts.size > 0
+                  ? 'bg-purple-600 hover:bg-purple-500 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              运行 ({selectedPrompts.size})
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

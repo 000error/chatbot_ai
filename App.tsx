@@ -102,9 +102,14 @@ const App: React.FC = () => {
     setConfigs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   };
 
-  const runTest = async () => {
+  const runTest = async (selectedPromptIndices?: number[]) => {
+    // 确定要运行的 prompts 和对应的 configs
+    const indicesToRun = selectedPromptIndices || prompts.map((_, i) => i);
+    const promptsToRun = indicesToRun.map(i => prompts[i]).filter(Boolean);
+    const configsToRun = indicesToRun.map(i => configs[i] || configs[0]).filter(Boolean);
+    
     // 检查是否有有效输入
-    const hasValidInput = prompts.some(p => p.text || p.files.length > 0 || p.seedUrls.length > 0);
+    const hasValidInput = promptsToRun.some(p => p.text || p.files.length > 0 || p.seedUrls.length > 0);
     if (!hasValidInput) {
         alert("请输入提示词或上传图片。");
         return;
@@ -112,22 +117,26 @@ const App: React.FC = () => {
 
     setIsProcessing(true);
 
-    // Initialize loading state for all active configs
+    // Initialize loading state for selected configs only
     const initialResults: Record<string, TestResult> = {};
-    configs.forEach(c => {
-        initialResults[c.id] = {
-            configId: c.id,
-            isLoading: true,
-            timestamp: Date.now()
-        };
+    configsToRun.forEach((c, idx) => {
+        const configId = c?.id || configs[0]?.id;
+        if (configId) {
+            initialResults[configId] = {
+                configId: configId,
+                isLoading: true,
+                timestamp: Date.now()
+            };
+        }
     });
-    setResults(initialResults);
+    setResults(prev => ({ ...prev, ...initialResults }));
 
-    // Run requests in parallel
-    // 每个 config 使用对应索引的 prompt，如果没有则使用第一个
-    const promises = configs.map(async (config, configIndex) => {
-        // 获取对应的 prompt，如果索引超出则使用第一个
-        const promptData = prompts[configIndex] || prompts[0];
+    // Run requests in parallel - 只运行选中的
+    const promises = indicesToRun.map(async (promptIndex, idx) => {
+        const promptData = prompts[promptIndex];
+        const config = configs[promptIndex] || configs[0];
+        if (!promptData || !config) return;
+        
         const { text: promptText, files: promptFiles, seedUrls: promptSeedUrls } = promptData;
         
         try {
@@ -157,7 +166,7 @@ const App: React.FC = () => {
                 }
             }));
         }
-    });
+    }).filter(Boolean);
 
     await Promise.all(promises);
     setIsProcessing(false);
@@ -183,6 +192,7 @@ const App: React.FC = () => {
       <div className="h-[30vh] lg:h-full overflow-hidden">
         <ConfigSection 
             configs={configs}
+            prompts={prompts}
             onAddConfig={addConfig}
             onRemoveConfig={removeConfig}
             onUpdateConfig={updateConfig}

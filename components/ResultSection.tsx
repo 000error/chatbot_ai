@@ -247,39 +247,52 @@ const ResultCard: React.FC<{
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden shadow-sm">
+    <div className={`rounded-lg border transition-all duration-200 overflow-hidden ${
+      isExpanded 
+      ? 'bg-gray-800 border-green-500/50 shadow-md' 
+      : 'bg-gray-850 border-gray-700 hover:border-gray-600'
+    }`}>
       {/* Header for Result Card - 可点击折叠 */}
       <div
-        className="bg-gray-750 px-4 py-2 border-b border-gray-700 flex justify-between items-center cursor-pointer hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-between p-3 h-12 cursor-pointer select-none group"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-3">
-          <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-gray-400 uppercase">Config {index + 1}: {config.modelName}</span>
-            <span className="text-[10px] text-gray-500">Temp: {config.temperature}</span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${isExpanded ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
+            {index + 1}
+          </span>
+          <div className="flex flex-col min-w-0">
+            <span className={`text-sm font-medium truncate ${isExpanded ? 'text-gray-200' : 'text-gray-400'}`}>
+              {config.modelName || 'No Model'}
+            </span>
+            {!isExpanded && (
+              <span className="text-[10px] text-gray-600 truncate">
+                Temp: {config.temperature}
+              </span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           {getStatusBadge()}
           {result?.timestamp && !result.isLoading && (
             <span className="text-[10px] text-gray-500">
               {new Date(result.timestamp).toLocaleTimeString()}
             </span>
           )}
+          <svg
+            className={`w-4 h-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </div>
       </div>
 
       {/* 可折叠内容 */}
       {isExpanded && (
-        <div className="p-4 min-h-[120px] space-y-3">
+        <div className="p-4 min-h-[120px] space-y-3 border-t border-gray-700 bg-gray-900/30">
           {!result ? (
             <div className="h-full flex items-center justify-center text-gray-600 italic text-sm">
               Waiting to run...
@@ -342,7 +355,7 @@ const ResultSection: React.FC<ResultSectionProps> = ({ results, configs }) => {
         <p className="text-xs text-gray-500 mt-1">Output from the configured models.</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {configs.length === 0 && (
              <div className="text-center text-gray-600 mt-20">
                 <p>No active configurations.</p>

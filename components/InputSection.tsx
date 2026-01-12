@@ -80,25 +80,25 @@ const PromptCard: React.FC<{
       {/* Compact Header / Button - 仿照 ConfigSection */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between p-3 cursor-pointer select-none group"
+        className="flex items-center justify-between p-3 h-12 cursor-pointer select-none group"
       >
-        <div className="flex items-center gap-3">
-          <span className={`flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${isExpanded ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className={`flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold ${isExpanded ? 'bg-blue-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
             {index + 1}
           </span>
-          <div className="flex flex-col">
-            <span className={`text-sm font-medium ${isExpanded ? 'text-gray-200' : 'text-gray-400'}`}>
+          <div className="flex flex-col min-w-0">
+            <span className={`text-sm font-medium truncate ${isExpanded ? 'text-gray-200' : 'text-gray-400'}`}>
               Prompt {index + 1}
             </span>
             {!isExpanded && (
-              <span className="text-[10px] text-gray-600">
+              <span className="text-[10px] text-gray-600 truncate">
                 {getCompactInfo()}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {/* Delete Button - 仿照 ConfigSection，hover 时显示 */}
           {canDelete && (
             <button
