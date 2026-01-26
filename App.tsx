@@ -147,11 +147,10 @@ const App: React.FC = () => {
                     configId: config.id,
                     isLoading: false,
                     textResponse: result.text,
-                    imageBase64s: result.imageBase64s,
-                    imageUrls: (result as any).imageUrls,
-                    rawResponse: (result as any).rawResponse,
-                    requestPayload: (result as any).requestPayload,
-                    endpoint: (result as any).endpoint,
+                    imageUrls: result.imageUrls,
+                    rawResponse: result.rawResponse,
+                    requestPayload: result.requestPayload,
+                    endpoint: result.endpoint,
                     timestamp: Date.now()
                 }
             }));

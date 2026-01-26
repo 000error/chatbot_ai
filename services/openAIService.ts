@@ -15,6 +15,189 @@ import { FileAttachment, ModelConfig } from "../types";
 import { uploadMultipleToQiniu } from "./qiniuService";
 
 /**
+ * Validate if a string is valid base64
+ */
+const isValidBase64 = (str: string): boolean => {
+  try {
+    // Remove whitespace first
+    const cleaned = str.replace(/\s+/g, '');
+
+    // More lenient check - just verify it's not empty and has reasonable characters
+    if (cleaned.length === 0) {
+      return false;
+    }
+
+    // Check if it contains mostly base64 characters (allow some flexibility)
+    const base64Chars = cleaned.match(/[A-Za-z0-9+/=]/g);
+    if (!base64Chars || base64Chars.length < cleaned.length * 0.95) {
+      console.warn('[isValidBase64] String contains non-base64 characters:', {
+        totalLength: cleaned.length,
+        base64CharsCount: base64Chars?.length || 0,
+        ratio: base64Chars ? (base64Chars.length / cleaned.length) : 0
+      });
+      return false;
+    }
+
+    // Try to decode it
+    if (typeof window !== 'undefined' && window.atob) {
+      window.atob(cleaned);
+      return true;
+    }
+    return true; // If atob is not available, assume valid
+  } catch (e) {
+    console.error('[isValidBase64] Decode failed:', e);
+    return false;
+  }
+};
+
+/**
+ * Clean base64 string by removing only whitespace (not other characters)
+ * This preserves the image structure while removing formatting characters
+ */
+const cleanBase64 = (base64: string): string => {
+  // Only remove whitespace: spaces, newlines, tabs, carriage returns
+  // DO NOT remove other characters as they might be part of the image data
+  const cleaned = base64.replace(/[\s\r\n\t]/g, '');
+
+  if (base64.length !== cleaned.length) {
+    console.log('[cleanBase64] Removed whitespace only:', {
+      originalLength: base64.length,
+      cleanedLength: cleaned.length,
+      removedCount: base64.length - cleaned.length,
+      sampleOriginal: base64.substring(0, 100),
+      sampleCleaned: cleaned.substring(0, 100)
+    });
+  }
+
+  return cleaned;
+};
+
+/**
+ * Fix MIME type in data URL by detecting actual image format
+ * Also removes any invalid characters from base64 data
+ * Converts to Blob URL for better performance
+ */
+const fixImageDataUrl = (dataUrl: string): string => {
+  if (!dataUrl.startsWith('data:')) return dataUrl;
+
+  const base64Match = dataUrl.match(/^data:image\/[^;]+;base64,(.+)$/);
+  if (!base64Match) return dataUrl;
+
+  const originalBase64 = base64Match[1];
+  // Remove all non-base64 characters
+  const base64Data = cleanBase64(originalBase64);
+
+  // Log if characters were removed
+  if (originalBase64.length !== base64Data.length) {
+    console.log('[fixImageDataUrl] Cleaned base64 data:', {
+      originalLength: originalBase64.length,
+      cleanedLength: base64Data.length,
+      removedChars: originalBase64.length - base64Data.length
+    });
+  }
+
+  let mimeType = 'image/png'; // default
+
+  if (base64Data.startsWith('/9j/')) {
+    mimeType = 'image/jpeg'; // JPEG format
+  } else if (base64Data.startsWith('iVBORw0KGgo')) {
+    mimeType = 'image/png'; // PNG format
+  } else if (base64Data.startsWith('R0lGODlh') || base64Data.startsWith('R0lGODdh')) {
+    mimeType = 'image/gif'; // GIF format
+  } else if (base64Data.startsWith('UklGR')) {
+    mimeType = 'image/webp'; // WebP format
+  }
+
+  // Use Blob URL for better performance and compatibility
+  return base64ToBlobUrl(base64Data, mimeType);
+};
+
+/**
+ * Convert base64 to Blob URL (better for large images)
+ */
+const base64ToBlobUrl = (base64: string, mimeType: string): string => {
+  try {
+    // Clean the base64 data
+    const cleanedBase64 = cleanBase64(base64);
+
+    console.log('[base64ToBlobUrl] Attempting to decode:', {
+      cleanedLength: cleanedBase64.length,
+      mimeType,
+      first100: cleanedBase64.substring(0, 100),
+      last100: cleanedBase64.substring(cleanedBase64.length - 100)
+    });
+
+    // Decode base64 to binary
+    const byteCharacters = atob(cleanedBase64);
+
+    console.log('[base64ToBlobUrl] Decoded successfully:', {
+      byteLength: byteCharacters.length
+    });
+
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+
+    // Create Blob
+    const blob = new Blob([byteArray], { type: mimeType });
+
+    // Create Object URL
+    const blobUrl = URL.createObjectURL(blob);
+
+    console.log('[base64ToBlobUrl] Created Blob URL:', {
+      mimeType,
+      blobSize: blob.size,
+      blobUrl: blobUrl.substring(0, 60)
+    });
+
+    return blobUrl;
+  } catch (error) {
+    console.error('[base64ToBlobUrl] Failed to create Blob URL:', {
+      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.name : typeof error
+    });
+    // Fallback to data URL
+    const cleanedBase64 = cleanBase64(base64);
+    return `data:${mimeType};base64,${cleanedBase64}`;
+  }
+};
+
+/**
+ * Convert base64 string to data URL by detecting image format
+ * Removes any invalid characters from base64 data
+ */
+const base64ToDataUrl = (base64: string): string => {
+  // Remove all non-base64 characters
+  const cleanBase64Data = cleanBase64(base64);
+
+  // Log if characters were removed
+  if (base64.length !== cleanBase64Data.length) {
+    console.log('[base64ToDataUrl] Cleaned base64 data:', {
+      originalLength: base64.length,
+      cleanedLength: cleanBase64Data.length,
+      removedChars: base64.length - cleanBase64Data.length
+    });
+  }
+
+  let mimeType = 'image/png'; // default
+
+  if (cleanBase64Data.startsWith('/9j/')) {
+    mimeType = 'image/jpeg'; // JPEG format
+  } else if (cleanBase64Data.startsWith('iVBORw0KGgo')) {
+    mimeType = 'image/png'; // PNG format
+  } else if (cleanBase64Data.startsWith('R0lGODlh') || cleanBase64Data.startsWith('R0lGODdh')) {
+    mimeType = 'image/gif'; // GIF format
+  } else if (cleanBase64Data.startsWith('UklGR')) {
+    mimeType = 'image/webp'; // WebP format
+  }
+
+  // Use Blob URL for better performance and compatibility
+  return base64ToBlobUrl(cleanBase64Data, mimeType);
+};
+
+/**
  * Generate content using OpenAI-compatible APIs or image generation models
  * 
  * @param prompt - The user's text prompt
@@ -81,7 +264,7 @@ export const generateContent = async (
       model: config.modelName,
       prompt: finalPrompt,
       size: initialSize,
-      output_type: "base64",
+      output_type: "url",  // 改用 URL 格式，避免 base64 解码问题
       number_results: (typeof config.numberResults === 'number' && config.numberResults > 0 ? config.numberResults : 1),
     };
     if (isGoogle) {
@@ -241,13 +424,23 @@ export const generateContent = async (
               const b64s3 = arr3.map((item: any) => item?.b64_json).filter(Boolean);
               const urls3 = arr3.map((item: any) => item?.url).filter((u: any) => typeof u === 'string');
               const contentUrls3 = arr3
-                .map((item: any) => (typeof item?.content === 'string' && item.content.startsWith('data:')) ? item.content : null)
+                .map((item: any) => {
+                  if (typeof item?.content === 'string') {
+                    if (item.content.startsWith('data:')) {
+                      return fixImageDataUrl(item.content);
+                    } else {
+                      return base64ToDataUrl(item.content);
+                    }
+                  }
+                  return null;
+                })
                 .filter(Boolean) as string[];
-              const allUrls3 = [...urls3, ...contentUrls3];
-              if (b64s3.length === 0 && allUrls3.length === 0) {
+              const b64DataUrls3 = b64s3.map(b64 => base64ToDataUrl(b64));
+              const allUrls3 = [...urls3, ...contentUrls3, ...b64DataUrls3];
+              if (allUrls3.length === 0) {
                 return { text: "No image returned.", rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
               }
-              return { imageBase64s: b64s3.length ? b64s3 : undefined, imageUrls: allUrls3.length ? allUrls3 : undefined, rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
+              return { imageUrls: allUrls3.length ? allUrls3 : undefined, rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
             }
             throw new Error(`ModelGate API Error: ${res2.status} ${t2}`);
           }
@@ -276,13 +469,23 @@ export const generateContent = async (
           const b64s2 = arr2.map((item: any) => item?.b64_json).filter(Boolean);
           const urls2 = arr2.map((item: any) => item?.url).filter((u: any) => typeof u === 'string');
           const contentUrls2 = arr2
-            .map((item: any) => (typeof item?.content === 'string' && item.content.startsWith('data:')) ? item.content : null)
+            .map((item: any) => {
+              if (typeof item?.content === 'string') {
+                if (item.content.startsWith('data:')) {
+                  return fixImageDataUrl(item.content);
+                } else {
+                  return base64ToDataUrl(item.content);
+                }
+              }
+              return null;
+            })
             .filter(Boolean) as string[];
-          const allUrls2 = [...urls2, ...contentUrls2];
-          if (b64s2.length === 0 && allUrls2.length === 0) {
+          const b64DataUrls2 = b64s2.map(b64 => base64ToDataUrl(b64));
+          const allUrls2 = [...urls2, ...contentUrls2, ...b64DataUrls2];
+          if (allUrls2.length === 0) {
             return { text: "No image returned.", rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
           }
-          return { imageBase64s: b64s2.length ? b64s2 : undefined, imageUrls: allUrls2.length ? allUrls2 : undefined, rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
+          return { imageUrls: allUrls2.length ? allUrls2 : undefined, rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
         } catch (err2: any) {
           throw new Error(`Network error: ${String(err)}`);
         }
@@ -330,13 +533,23 @@ export const generateContent = async (
               const b64s3 = arr3.map((item: any) => item?.b64_json).filter(Boolean);
               const urls3 = arr3.map((item: any) => item?.url).filter((u: any) => typeof u === 'string');
               const contentUrls3 = arr3
-                .map((item: any) => (typeof item?.content === 'string' && item.content.startsWith('data:')) ? item.content : null)
+                .map((item: any) => {
+                  if (typeof item?.content === 'string') {
+                    if (item.content.startsWith('data:')) {
+                      return fixImageDataUrl(item.content);
+                    } else {
+                      return base64ToDataUrl(item.content);
+                    }
+                  }
+                  return null;
+                })
                 .filter(Boolean) as string[];
-              const allUrls3 = [...urls3, ...contentUrls3];
-              if (b64s3.length === 0 && allUrls3.length === 0) {
+              const b64DataUrls3 = b64s3.map(b64 => base64ToDataUrl(b64));
+              const allUrls3 = [...urls3, ...contentUrls3, ...b64DataUrls3];
+              if (allUrls3.length === 0) {
                 return { text: "No image returned.", rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
               }
-              return { imageBase64s: b64s3.length ? b64s3 : undefined, imageUrls: allUrls3.length ? allUrls3 : undefined, rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
+              return { imageUrls: allUrls3.length ? allUrls3 : undefined, rawResponse: JSON.stringify(json3), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
             }
             throw new Error(`ModelGate API Error: ${res2.status} ${t2}`);
           }
@@ -365,13 +578,23 @@ export const generateContent = async (
           const b64s2 = arr2.map((item: any) => item?.b64_json).filter(Boolean);
           const urls2 = arr2.map((item: any) => item?.url).filter((u: any) => typeof u === 'string');
           const contentUrls2 = arr2
-            .map((item: any) => (typeof item?.content === 'string' && item.content.startsWith('data:')) ? item.content : null)
+            .map((item: any) => {
+              if (typeof item?.content === 'string') {
+                if (item.content.startsWith('data:')) {
+                  return fixImageDataUrl(item.content);
+                } else {
+                  return base64ToDataUrl(item.content);
+                }
+              }
+              return null;
+            })
             .filter(Boolean) as string[];
-          const allUrls2 = [...urls2, ...contentUrls2];
-          if (b64s2.length === 0 && allUrls2.length === 0) {
+          const b64DataUrls2 = b64s2.map(b64 => base64ToDataUrl(b64));
+          const allUrls2 = [...urls2, ...contentUrls2, ...b64DataUrls2];
+          if (allUrls2.length === 0) {
             return { text: "No image returned.", rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
           }
-          return { imageBase64s: b64s2.length ? b64s2 : undefined, imageUrls: allUrls2.length ? allUrls2 : undefined, rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
+          return { imageUrls: allUrls2.length ? allUrls2 : undefined, rawResponse: JSON.stringify(json2), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
         }
         if (res.status === 508 && attempt < sizeCandidates.length + 1) { await new Promise(r => setTimeout(r, 1200)); continue; }
         throw new Error(`ModelGate API Error: ${res.status} ${errText}`);
@@ -388,16 +611,67 @@ export const generateContent = async (
         if ((json?.code === 508 || json?.is_retry) && attempt < sizeCandidates.length + 1) { await new Promise(r => setTimeout(r, 1200)); continue; }
       }
       const arr = Array.isArray(json?.data) ? json.data : [];
+      console.log('[Image Gen] Response data array:', arr);
+
+      // 标准 OpenAI 格式：b64_json 字段（纯 base64）
       const b64s = arr.map((item: any) => item?.b64_json).filter(Boolean);
+
+      // 标准 OpenAI 格式：url 字段
       const urls = arr.map((item: any) => item?.url).filter((u: any) => typeof u === 'string');
+
+      // ModelGate 扩展格式：content 字段（可能是 data URL 或纯 base64）
       const contentUrls = arr
-        .map((item: any) => (typeof item?.content === 'string' && item.content.startsWith('data:')) ? item.content : null)
+        .map((item: any) => {
+          if (typeof item?.content === 'string') {
+            const content = item.content;
+            // 如果是完整的 data URL，直接使用（但修正 MIME 类型）
+            if (content.startsWith('data:')) {
+              return fixImageDataUrl(content);
+            }
+            // 如果是纯 base64，转换为 data URL
+            else {
+              return base64ToDataUrl(content);
+            }
+          }
+          return null;
+        })
         .filter(Boolean) as string[];
-      const allUrls = [...urls, ...contentUrls];
-      if (b64s.length === 0 && allUrls.length === 0) {
+
+      // 将 b64_json 转换为 data URL
+      const b64DataUrls = b64s.map(b64 => base64ToDataUrl(b64));
+
+      // 合并所有图片 URL
+      const allUrls = [...urls, ...contentUrls, ...b64DataUrls];
+
+      console.log('[Image Gen] Extracted data:', {
+        b64s_count: b64s.length,
+        urls_count: urls.length,
+        contentUrls_count: contentUrls.length,
+        total_images: allUrls.length,
+        contentUrls_preview: contentUrls.map(u => ({
+          prefix: u.substring(0, 50),
+          length: u.length,
+          hasWhitespace: /\s/.test(u)
+        }))
+      });
+
+      if (allUrls.length === 0) {
         return { text: "No image returned.", rawResponse: JSON.stringify(json), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
       }
-      return { imageBase64s: b64s.length ? b64s : undefined, imageUrls: allUrls.length ? allUrls : undefined, rawResponse: JSON.stringify(json), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
+
+      const result = {
+        imageUrls: allUrls.length ? allUrls : undefined,
+        rawResponse: JSON.stringify(json),
+        requestPayload: JSON.stringify(payload),
+        endpoint: endpointUsed
+      };
+
+      console.log('[Image Gen] Returning result:', {
+        hasImageUrls: !!result.imageUrls,
+        imageUrlsCount: result.imageUrls?.length
+      });
+
+      return result;
     }
     return { text: "No image returned.", rawResponse: JSON.stringify(lastJson), requestPayload: JSON.stringify(payload), endpoint: endpointUsed };
   }
@@ -405,12 +679,9 @@ export const generateContent = async (
   else if (/mg\.aid\.pub/.test(baseUrl) || /localhost:13148/.test(baseUrl) || /\/api\/v1$/.test(baseUrl) || /\/v1$/.test(baseUrl)) {
     const textBase = baseUrl.replace(/\/_?api\/v1$/, '/v1');
     const endpoint = `${textBase}/chat/completions`;
-    const input = config.systemInstruction && prompt
-      ? [{ role: 'system', content: config.systemInstruction }, { role: 'user', content: prompt }]
-      : (prompt || '');
     const payload: any = {
       model: config.modelName,
-      input,
+      messages,
       temperature: config.temperature,
     };
     let res: Response;

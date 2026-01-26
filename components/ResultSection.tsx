@@ -6,14 +6,76 @@ interface ResultSectionProps {
   configs: ModelConfig[];
 }
 
-// 图片下载函数
-const downloadImage = (src: string, filename: string) => {
-  const link = document.createElement('a');
-  link.href = src;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+// 从 data URL 中提取文件扩展名
+const getFileExtensionFromDataUrl = (dataUrl: string): string => {
+  if (dataUrl.startsWith('data:image/jpeg')) return 'jpg';
+  if (dataUrl.startsWith('data:image/png')) return 'png';
+  if (dataUrl.startsWith('data:image/gif')) return 'gif';
+  if (dataUrl.startsWith('data:image/webp')) return 'webp';
+  return 'png'; // 默认
+};
+
+// 图片下载函数 - 支持 data URL 和普通 URL
+const downloadImage = (src: string, baseFilename?: string) => {
+  // 如果是 data URL，需要转换为 Blob 再下载
+  if (src.startsWith('data:')) {
+    try {
+      // 提取 MIME 类型和 base64 数据
+      const matches = src.match(/^data:([^;]+);base64,(.+)$/);
+      if (!matches) {
+        console.error('Invalid data URL format');
+        alert('图片格式无效，无法下载');
+        return;
+      }
+
+      const mimeType = matches[1];
+      const base64Data = matches[2];
+
+      // 根据 MIME 类型确定文件扩展名
+      const ext = getFileExtensionFromDataUrl(src);
+      const filename = baseFilename ? `${baseFilename}.${ext}` : `image_${Date.now()}.${ext}`;
+
+      // 将 base64 转换为二进制数据
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+
+      // 创建 Blob
+      const blob = new Blob([byteArray], { type: mimeType });
+
+      // 创建临时 URL
+      const blobUrl = URL.createObjectURL(blob);
+
+      // 创建下载链接
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // 释放 URL 对象
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+
+      console.log(`Image downloaded: ${filename} (${mimeType})`);
+    } catch (error) {
+      console.error('Failed to download image:', error);
+      alert('图片下载失败：' + (error instanceof Error ? error.message : '未知错误'));
+    }
+  } else {
+    // 普通 URL 直接下载
+    const filename = baseFilename || `image_${Date.now()}`;
+    const link = document.createElement('a');
+    link.href = src;
+    link.download = filename;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 };
 
 // 可折叠组件
@@ -60,7 +122,7 @@ const ImageViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, onCl
         <button
           onClick={(e) => {
             e.stopPropagation();
-            downloadImage(src, `image_${Date.now()}.png`);
+            downloadImage(src, `image_${Date.now()}`);
           }}
           className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
@@ -77,38 +139,69 @@ const ImageViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, onCl
 // 图片卡片组件
 const ImageCard: React.FC<{ src: string; index: number }> = ({ src, index }) => {
   const [showViewer, setShowViewer] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   return (
     <>
       <div className="relative group">
+        {!imageLoaded && !imageError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-800 rounded">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        {imageError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 rounded p-4">
+            <svg className="w-12 h-12 text-red-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-red-400 text-xs text-center">图片加载失败</span>
+          </div>
+        )}
         <img
           src={src}
           alt={`image ${index + 1}`}
           className="rounded border border-gray-700 cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => setShowViewer(true)}
+          onClick={() => !imageError && setShowViewer(true)}
+          onLoad={() => {
+            setImageLoaded(true);
+            console.log(`Image ${index + 1} loaded successfully`);
+          }}
+          onError={(e) => {
+            setImageError(true);
+            console.error(`Image ${index + 1} failed to load:`, {
+              src: src.substring(0, 100),
+              srcLength: src.length,
+              isDataUrl: src.startsWith('data:')
+            });
+          }}
+          style={{ display: imageError ? 'none' : 'block' }}
         />
-        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded">
-          <button
-            onClick={() => setShowViewer(true)}
-            className="bg-gray-800/80 hover:bg-gray-700 text-white p-2 rounded-full"
-            title="放大查看"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              downloadImage(src, `image_${index + 1}_${Date.now()}.png`);
-            }}
-            className="bg-blue-600/80 hover:bg-blue-500 text-white p-2 rounded-full"
-            title="下载图片"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          </button>
-        </div>
+        {imageLoaded && !imageError && (
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded">
+            <button
+              onClick={() => setShowViewer(true)}
+              className="bg-gray-800/80 hover:bg-gray-700 text-white p-2 rounded-full"
+              title="放大查看"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadImage(src, `image_${index + 1}_${Date.now()}`);
+              }}
+              className="bg-blue-600/80 hover:bg-blue-500 text-white p-2 rounded-full"
+              title="下载图片"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
       {showViewer && <ImageViewer src={src} onClose={() => setShowViewer(false)} />}
     </>
@@ -306,37 +399,22 @@ const ResultCard: React.FC<{
             <div className="text-red-400 text-sm bg-red-900/20 p-3 rounded border border-red-900/50">
               <strong>Error:</strong> {result.error}
             </div>
+          ) : result.imageUrls && result.imageUrls.length > 0 ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {result.imageUrls.map((url, i) => (
+                  <ImageCard key={i} src={url} index={i} />
+                ))}
+              </div>
+              <DebugInfo result={result} />
+            </div>
           ) : (
-            result.imageBase64s && result.imageBase64s.length > 0 ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {result.imageBase64s.map((b64, i) => (
-                    <ImageCard
-                      key={i}
-                      src={`data:image/png;base64,${b64}`}
-                      index={i}
-                    />
-                  ))}
-                </div>
-                <DebugInfo result={result} />
+            <div className="prose prose-invert prose-sm max-w-none space-y-3">
+              <div className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed">
+                {result.textResponse}
               </div>
-            ) : result.imageUrls && result.imageUrls.length > 0 ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {result.imageUrls.map((url, i) => (
-                    <ImageCard key={i} src={url} index={i} />
-                  ))}
-                </div>
-                <DebugInfo result={result} />
-              </div>
-            ) : (
-              <div className="prose prose-invert prose-sm max-w-none space-y-3">
-                <div className="whitespace-pre-wrap font-sans text-gray-200 leading-relaxed">
-                  {result.textResponse}
-                </div>
-                <DebugInfo result={result} />
-              </div>
-            )
+              <DebugInfo result={result} />
+            </div>
           )}
         </div>
       )}
